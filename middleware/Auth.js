@@ -1,39 +1,39 @@
+const jwt = require('jsonwebtoken');
+let User = require('../models/user.model');
+let constants = require('../config/constants')
+const { JWT_SECRET } = require('../keys/keys')
+const lang = require("../lang/en/message")
 
 
-const jwt = require("jsonwebtoken")
 
 
-// ---------------------------------------Authentication------------------------------------------------------------------
-const authentication = function (req, res, next) {
-
+exports.authenticate = async (req, res, next) => {
+    
     try {
-        let bearerHeader = req.headers.authorization;
 
-        if (typeof bearerHeader == "undefined") return res.status(400).send({ status: false, message: "Token is missing, please enter a token" });
+        if (!req.header('Authorization')) return res.status(constants.WEB_STATUS_CODE.BAD_REQUEST).send({status:constants.STATUS_CODE.STATUS_FAILED , message:lang.GENERAL.UNAUTHORIZED_USER})
 
-        let bearerToken = bearerHeader.split(' ');
+        const token = req.header('Authorization').replace('Bearer ', '');
+        if (!token) return res.status(constants.WEB_STATUS_CODE.BAD_REQUEST).send({status:constants.STATUS_CODE.STATUS_FAILED , message:"NOT TOKEN"})
 
-        let token = bearerToken[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const user = await User.findOne({ _id: decoded._id, 'tokens': token }).lean();
 
-        jwt.verify(token, "prakash123", function (err, data) {
-            if (err) {
-                return res.status(400).send({ status: false, message: "Token is invalid" })
-            }
-           else {
-                req.decodedToken = data;
-                next()
-            }
-        });
+        if (!user) return res.status(constants.WEB_STATUS_CODE.UNAUTHORIZED).send({status:constants.STATUS_CODE.STATUS_FAILED , message:lang.GENERAL.UNAUTHORIZED_USER})
+
+        req.token = token;
+        req.user = user;
+
+        next();
     } catch (err) {
-
-        console.log("Authications" , err)
-        res.status(500).send({ message: err.message });
+        console.log('Error(authenticate): ', err)
+        return res.status(constants.WEB_STATUS_CODE.SERVER_ERROR).send({constants.STATUS_CODE.STATUS_FAILED , message:err}); 
     }
-};
+}
 
 
 // ----------------------------------------Authorization-------------------------------------------------------------
-const authorization = async (req, res, next) => {
+exports. authorization = async (req, res, next) => {
 
     try {
 
@@ -42,29 +42,28 @@ const authorization = async (req, res, next) => {
 
         if (!userId){
 
-            return res.status(400).send({ status: false, message: "Please enter vaild User id in params." });
+            return res.status(constants.WEB_STATUS_CODE.BAD_REQUEST).send({ status: constants.STATUS_CODE.STATUS_FAILED, message: "Please enter vaild User id in params." });
         }
 
         let findUser = await userModel.findOne({ _id: userId });
 
         if (!findUser) {
 
-            return res.status(400).send({ status: false, message: "User not found." });
+            return res.status(constants.WEB_STATUS_CODE.BAD_REQUEST).send({ status: constants.STATUS_CODE.STATUS_FAILED, message: "User not found." });
         }
 
         if (findUser._id.toString() !== userIdfromToken) {
             
-            res.status(401).send({ status: false, message: "Unauthorized access!!" });
+            res.status(constants.WEB_STATUS_CODE.UNAUTHORIZED).send({ status: constants.STATUS_CODE.STATUS_FAILED, message: "Unauthorized access!!" });
         }
 
         next();
 
     } catch (err) {
 
-        console.log("authorization" , err)
-        res.status(500).send({ status: false, error: err.message });
+        console.log('Error(authorization): ', err)
+        return res.status(constants.WEB_STATUS_CODE.SERVER_ERROR).send({constants.STATUS_CODE.STATUS_FAILED , message:err}); 
     }
 };
 
 
-module.exports = {authentication , authorization}

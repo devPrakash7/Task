@@ -1,12 +1,12 @@
 
 const mongoose = require("mongoose");
-
+const { MONGODB_URI } = require("../keys/development_key")
 
 
 // mongoDb connnected
 
 mongoose
-    .connect("mongodb+srv://root:akki909@cluster0.sm3rshd.mongodb.net/Blog_Management", {
+    .connect(MONGODB_URI, {
 
         useNewUrlParser: true,
     })
